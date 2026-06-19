@@ -1,4 +1,4 @@
-name: Build Windows CPU + CUDA12 (Final Fixed No Ninja)
+name: Build Windows CPU + CUDA12 (Final Stable No External CUDA Action)
 on:
   workflow_dispatch:
   push:
@@ -70,9 +70,6 @@ jobs:
 
   build-cuda12-x64:
     runs-on: windows-2022
-    strategy:
-      matrix:
-        cuda_ver: ['12']
     steps:
       - name: Clone source code
         uses: actions/checkout@v6
@@ -80,16 +77,16 @@ jobs:
       - name: ccache compile cache speedup
         uses: ggml-org/ccache-action@v1.2.21
         with:
-          key: cuda-windows-x64-${{ matrix.cuda_ver }}
+          key: cuda-windows-x64-12
           evict-old-files: 1d
           save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
-      - name: Install CUDA ${{ matrix.cuda_ver }} Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.15
-        with:
-          cuda: ${{ matrix.cuda_ver }}
-          method: network
-          sub-packages: '["nvcc","cudart","cublas","cublas_dev"]'
+      # 方案：choco 直接安装CUDA12.8，彻底规避第三方Action版本校验报错
+      - name: Install CUDA 12.8 via Chocolatey
+        run: |
+          choco install nvidia-cuda --version=12.8.0.520 -y
+          echo "CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8" >> $env:GITHUB_ENV
+          echo "${env:CUDA_PATH}\bin" >> $env:GITHUB_PATH
 
       - name: CMake Build CUDA (Enable llama-server & full MCP)
         run: |
