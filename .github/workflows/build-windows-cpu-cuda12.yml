@@ -1,0 +1,66 @@
+name: Build Windows CPU + CUDA12
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-cpu:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build CPU Release
+        run: |
+          Remove-Item -Recurse -Force build-cpu -ErrorAction SilentlyContinue
+          cmake -B build-cpu
+          cmake --build build-cpu --config Release -j4
+
+      - name: Package CPU binaries
+        run: |
+          mkdir artifact-cpu
+          Copy-Item build-cpu/bin/Release/* artifact-cpu/ -Recurse
+          Compress-Archive -Path artifact-cpu/* -DestinationPath llama-win-cpu-mcp.zip
+
+      - name: Upload CPU artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-win-cpu-mcp
+          path: llama-win-cpu-mcp.zip
+
+  build-cuda12:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install CUDA Toolkit 12.x
+        uses: nvidia/setup-cuda@v1
+        with:
+          cuda-version: "12"
+          cuda-install-type: "toolkit"
+
+      - name: Build CUDA12 Release
+        run: |
+          Remove-Item -Recurse -Force build-cuda -ErrorAction SilentlyContinue
+          cmake -B build-cuda -DLLAMA_CUDA=ON
+          cmake --build build-cuda --config Release -j4
+
+      - name: Package CUDA12 binaries
+        run: |
+          mkdir artifact-cuda
+          Copy-Item build-cuda/bin/Release/* artifact-cuda/ -Recurse
+          Compress-Archive -Path artifact-cuda/* -DestinationPath llama-win-cuda12-mcp.zip
+
+      - name: Upload CUDA12 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-win-cuda12-mcp
+          path: llama-win-cuda12-mcp.zip
