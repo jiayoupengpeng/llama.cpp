@@ -1,0 +1,79 @@
+name: CI Windows CPU MCP Enabled
+on:
+  workflow_dispatch: # 仅手动触发
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/build-win-cpu-mcp.yml'
+      - '**/CMakeLists.txt'
+      - '**/.cmake'
+      - '**/*.h'
+      - '**/*.hpp'
+      - '**/*.c'
+      - '**/*.cpp'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  GGML_NLOOP: 3
+  GGML_N_THREADS: 1
+  LLAMA_ARG_LOG_COLORS: 1
+  LLAMA_ARG_LOG_PREFIX: 1
+  LLAMA_ARG_LOG_TIMESTAMPS: 1
+
+jobs:
+  windows-x64-cpu:
+    runs-on: windows-2025
+    env:
+      OPENBLAS_VERSION: 0.3.23
+      VULKAN_VERSION: 1.4.313.2
+    strategy:
+      matrix:
+        include:
+          - build: 'x64-cpu-static'
+            arch: 'x64'
+            defines: '-G "Ninja Multi-Config" -D CMAKE_TOOLCHAIN_FILE=cmake/x64-windows-llvm.cmake -DGGML_NATIVE=OFF -DLLAMA_BUILD_SERVER=ON -DGGML_RPC=ON -DBUILD_SHARED_LIBS=OFF'
+    steps:
+      - name: Clone
+        id: checkout
+        uses: actions/checkout@v6
+
+      - name: ccache
+        uses: ggml-org/ccache-action@v1.2.21
+        with:
+          key: cpu-windows-2025-${{ matrix.build }}
+          variant: ccache
+          evict-old-files: 1d
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+
+      - name: Install Ninja
+        id: install_ninja
+        run: choco install ninja -y
+
+      - name: Build
+        id: cmake_build
+        run: |
+          cmake -S . -B build ${{ matrix.defines }} `
+            -DLLAMA_BUILD_BORINGSSL=ON
+          cmake --build build --config Release -j ${env:NUMBER_OF_PROCESSORS}
+
+      - name: Test
+        id: cmake_test
+        run: |
+          cd build
+          ctest -L main -C Release --verbose --timeout 900
+
+      - name: Package Release Binary
+        run: |
+          mkdir output-cpu
+          Copy-Item build/bin/Release/* output-cpu/ -Recurse
+          Compress-Archive -Path output-cpu/* -DestinationPath llama-win-cpu-mcp.zip
+
+      - name: Upload CPU Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-win-cpu-mcp
+          path: llama-win-cpu-mcp.zip
