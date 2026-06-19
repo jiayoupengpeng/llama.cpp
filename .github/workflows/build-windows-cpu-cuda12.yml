@@ -1,4 +1,4 @@
-name: Build Windows CPU + CUDA12 (Official Aligned Final)
+name: Build Windows CPU + CUDA12 (Official Aligned Final Fixed)
 on:
   workflow_dispatch:
   push:
@@ -26,7 +26,7 @@ env:
 
 jobs:
   build-cpu-x64:
-    runs-on: windows-2025
+    runs-on: windows-2022
     steps:
       - name: Clone source code
         uses: actions/checkout@v6
@@ -39,7 +39,7 @@ jobs:
           save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
       - name: Install Ninja build tool
-        run: choco install ninja
+        run: choco install ninja -y
 
       - name: CMake Build CPU (Enable llama-server & full MCP)
         run: |
@@ -73,10 +73,10 @@ jobs:
           path: llama-win-cpu-mcp.zip
 
   build-cuda12-x64:
-    runs-on: windows-2025
+    runs-on: windows-2022
     strategy:
       matrix:
-        cuda_ver: ['12.4']
+        cuda_ver: ['12.6']
     steps:
       - name: Clone source code
         uses: actions/checkout@v6
@@ -89,9 +89,8 @@ jobs:
           save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
       - name: Install Ninja build tool
-        run: choco install ninja
+        run: choco install ninja -y
 
-      # 稳定社区CUDA安装方案，彻底规避 nvidia/setup-cuda / cuda/setup-cuda 仓库找不到报错
       - name: Install CUDA ${{ matrix.cuda_ver }} Toolkit
         uses: Jimver/cuda-toolkit@v0.2.15
         with:
