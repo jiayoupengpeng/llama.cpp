@@ -2,22 +2,24 @@ name: Build Windows CPU + CUDA12
 on:
   workflow_dispatch:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   build-cpu:
     runs-on: windows-latest
     steps:
-      - name: Checkout source
+      - name: Checkout source (main 最新主线，含完整MCP客户端)
         uses: actions/checkout@v4
+        with:
+          ref: main
 
-      - name: Setup MSVC
+      - name: Setup MSVC VS2022
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build CPU Release
         run: |
           Remove-Item -Recurse -Force build-cpu -ErrorAction SilentlyContinue
-          cmake -B build-cpu
+          cmake -B build-cpu -DCMAKE_BUILD_TYPE=Release
           cmake --build build-cpu --config Release -j4
 
       - name: Package CPU binaries
@@ -35,22 +37,27 @@ jobs:
   build-cuda12:
     runs-on: windows-latest
     steps:
-      - name: Checkout source
+      - name: Checkout source (main 最新主线，含完整MCP客户端)
         uses: actions/checkout@v4
+        with:
+          ref: main
 
-      - name: Setup MSVC
+      - name: Setup MSVC VS2022
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install CUDA Toolkit 12.x
-        uses: nvidia/setup-cuda@v1
+      - name: Install CUDA Toolkit 12.x Official
+        uses: cuda/setup-cuda@v1
         with:
           cuda-version: "12"
-          cuda-install-type: "toolkit"
+          cuda-install-type: toolkit
 
       - name: Build CUDA12 Release
         run: |
           Remove-Item -Recurse -Force build-cuda -ErrorAction SilentlyContinue
-          cmake -B build-cuda -DLLAMA_CUDA=ON
+          cmake -B build-cuda ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DGGML_CUDA=ON ^
+            -DGGML_CUDA_F16=ON
           cmake --build build-cuda --config Release -j4
 
       - name: Package CUDA12 binaries
