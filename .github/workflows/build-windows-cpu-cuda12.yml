@@ -1,4 +1,4 @@
-name: Build Windows CPU + CUDA12 (Official Aligned Final Fixed)
+name: Build Windows CPU + CUDA12 (Final Fixed No Ninja)
 on:
   workflow_dispatch:
   push:
@@ -38,15 +38,11 @@ jobs:
           evict-old-files: 1d
           save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
-      - name: Install Ninja build tool
-        run: choco install ninja -y
-
       - name: CMake Build CPU (Enable llama-server & full MCP)
         run: |
           Remove-Item -Recurse -Force build-cpu -ErrorAction SilentlyContinue
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           cmake -S . -B build-cpu ^
-            -G "Ninja Multi-Config" ^
+            -A x64 ^
             -DGGML_NATIVE=OFF ^
             -DLLAMA_BUILD_SERVER=ON ^
             -DLLAMA_BUILD_BORINGSSL=ON ^
@@ -63,7 +59,7 @@ jobs:
       - name: Package CPU release zip
         run: |
           mkdir artifact-cpu
-          Copy-Item build-cpu/bin/Release/* artifact-cpu/ -Recurse
+          Copy-Item build-cpu/Release/* artifact-cpu/ -Recurse
           Compress-Archive -Path artifact-cpu/* -DestinationPath llama-win-cpu-mcp.zip
 
       - name: Upload CPU build artifact
@@ -76,7 +72,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        cuda_ver: ['12.6']
+        cuda_ver: ['12']
     steps:
       - name: Clone source code
         uses: actions/checkout@v6
@@ -88,9 +84,6 @@ jobs:
           evict-old-files: 1d
           save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
-      - name: Install Ninja build tool
-        run: choco install ninja -y
-
       - name: Install CUDA ${{ matrix.cuda_ver }} Toolkit
         uses: Jimver/cuda-toolkit@v0.2.15
         with:
@@ -101,9 +94,8 @@ jobs:
       - name: CMake Build CUDA (Enable llama-server & full MCP)
         run: |
           Remove-Item -Recurse -Force build-cuda -ErrorAction SilentlyContinue
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           cmake -S . -B build-cuda ^
-            -G "Ninja Multi-Config" ^
+            -A x64 ^
             -DGGML_NATIVE=OFF ^
             -DLLAMA_BUILD_SERVER=ON ^
             -DLLAMA_BUILD_BORINGSSL=ON ^
@@ -122,7 +114,7 @@ jobs:
       - name: Package CUDA release zip
         run: |
           mkdir artifact-cuda
-          Copy-Item build-cuda/bin/Release/* artifact-cuda/ -Recurse
+          Copy-Item build-cuda/Release/* artifact-cuda/ -Recurse
           Compress-Archive -Path artifact-cuda/* -DestinationPath llama-win-cuda12-mcp.zip
 
       - name: Upload CUDA build artifact
